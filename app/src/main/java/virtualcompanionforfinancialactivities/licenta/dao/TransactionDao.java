@@ -5,7 +5,7 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
 import java.util.List;
-import virtualcompanionforfinancialactivities.licenta.Transaction;
+import virtualcompanionforfinancialactivities.Transaction;
 
 @Dao
 public interface TransactionDao<Transaction> {
