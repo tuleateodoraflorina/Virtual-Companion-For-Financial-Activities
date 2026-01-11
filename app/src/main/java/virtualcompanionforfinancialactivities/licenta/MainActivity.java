@@ -1,26 +1,35 @@
 package virtualcompanionforfinancialactivities.licenta;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager; // Import needed
+import androidx.recyclerview.widget.RecyclerView;       // Import needed
 
 import virtualcompanionforfinancialactivities.licenta.dao.PetDao;
 import virtualcompanionforfinancialactivities.licenta.dao.TransactionDao;
 import virtualcompanionforfinancialactivities.licenta.database.AppDatabase;
 
+import java.util.List; // Import needed for the list
+
 public class MainActivity extends AppCompatActivity {
 
+    // --- UI Variables ---
     private EditText inputAmount, inputDesc;
     private TextView textTotal;
     private ImageView imagePet;
+    private RecyclerView recyclerView; // <--- You were missing this
 
+    // --- Logic Variables ---
     private TransactionDao transactionDao;
     private PetDao petDao;
     private Pet currentPet;
+    private TransactionAdapter adapter; // <--- You were missing this
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,17 +43,25 @@ public class MainActivity extends AppCompatActivity {
         textTotal = findViewById(R.id.text_total);
         imagePet = findViewById(R.id.image_pet);
 
+        // 1.5 Initialize RecyclerView (The List)
+        recyclerView = findViewById(R.id.recycler_view_history);
+        adapter = new TransactionAdapter();
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
         // 2. Initialize Database
         AppDatabase db = AppDatabase.getDatabase(this);
         transactionDao = db.transactionDao();
         petDao = db.petDao();
 
-        // 3. Initialize Pet (Check if one exists)
+        // 3. Initialize Pet
         initializePet();
 
         // 4. Update displays
         updateUI();
+        loadTransactionList(); // Load the list when app starts
 
+        // 5. Button Logic
         btnSave.setOnClickListener(v -> saveTransaction());
     }
 
@@ -52,18 +69,11 @@ public class MainActivity extends AppCompatActivity {
         currentPet = petDao.getActivePet();
 
         if (currentPet == null) {
-            // MATCHING YOUR PET CLASS CONSTRUCTOR:
-            // (name, speciesId, petCoins, happinessScore, healthScore, lastActivityTime, equippedItemId)
             Pet newPet = new Pet(
-                    "Finchy",
-                    1,                    // speciesId (e.g., 1 = Cat)
-                    0,                    // petCoins
-                    100.0f,               // happinessScore (Start full)
-                    100.0f,               // healthScore
-                    System.currentTimeMillis(),
-                    null                  // equippedItemId (null means nothing worn)
+                    "Bobi",
+                    1, 0, 100.0f, 100.0f,
+                    System.currentTimeMillis(), null
             );
-
             petDao.insert(newPet);
             currentPet = newPet;
         }
@@ -77,44 +87,47 @@ public class MainActivity extends AppCompatActivity {
 
         double amount = Double.parseDouble(amountText);
 
-        // Save Transaction
-        // (Ensure Transaction constructor matches what you have in Transaction.java)
+        // 1. Save Transaction to DB
         Transaction t = new Transaction(amount, "EXPENSE", System.currentTimeMillis(), 1, description);
         transactionDao.insert(t);
 
-        // --- UPDATE PET HAPPINESS ---
+        // 2. Update Pet Happiness
         if (currentPet != null) {
-            // Decrease happiness by 5.0
             float newHappiness = currentPet.getHappinessScore() - 5.0f;
             if (newHappiness < 0) newHappiness = 0;
 
             currentPet.setHappinessScore(newHappiness);
-
-            // Also update the "Last Active" time
             currentPet.setLastActivityTime(System.currentTimeMillis());
-
             petDao.update(currentPet);
         }
 
+        // 3. Clear Inputs and Refresh UI
         inputAmount.setText("");
         inputDesc.setText("");
-        updateUI();
+
+        updateUI();              // Update the total and pet image
+        loadTransactionList();   // <--- IMPORTANT: Refresh the list to show new item!
+
         Toast.makeText(this, "Expense Saved!", Toast.LENGTH_SHORT).show();
     }
 
+    // --- Helper Methods ---
+
+    // This method must be OUTSIDE saveTransaction
+    private void loadTransactionList() {
+        List<Transaction> list = transactionDao.getAllTransactions();
+        adapter.setTransactions(list);
+    }
+
     private void updateUI() {
-        // Update Total
         double total = transactionDao.getTotalSpent();
         textTotal.setText("Total Spent: $" + total);
 
-        // Update Pet Image based on Happiness
         if (currentPet != null) {
-            // Check if happiness is high (above 50)
             if (currentPet.getHappinessScore() > 50) {
                 imagePet.setImageResource(R.drawable.pet_happy);
             } else {
                 imagePet.setImageResource(R.drawable.pet_sad);
-                Toast.makeText(this, "Your pet is sad!", Toast.LENGTH_SHORT).show();
             }
         }
     }
