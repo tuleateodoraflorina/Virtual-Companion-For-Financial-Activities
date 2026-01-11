@@ -1,14 +1,17 @@
 package virtualcompanionforfinancialactivities.licenta.dao;
 
-
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
 import java.util.List;
-import virtualcompanionforfinancialactivities.Transaction;
+
+// 1. Correct import pointing to your actual class
+import virtualcompanionforfinancialactivities.licenta.Transaction;
 
 @Dao
-public interface TransactionDao<Transaction> {
+// 2. Removed "<Transaction>" so it uses the real class, not a placeholder
+public interface TransactionDao {
+
     @Insert
     void insert(Transaction transaction);
 
