@@ -37,12 +37,12 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
         // 1. Set Description
         holder.descText.setText(current.getDescription());
 
-        // 2. Set Amount
-        holder.amountText.setText("$" + String.format("%.2f", current.getAmount()));
+        // 2. Set Amount AND Currency (e.g., "50.00 RON")
+        holder.amountText.setText(String.format("%.2f %s", current.getAmount(), current.getCurrency()));
 
-        // 3. Format Date (Convert long timestamp to readable String)
+        // 3. Format Date (Uses getTimestamp() to match your updated database)
         SimpleDateFormat sdf = new SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault());
-        holder.dateText.setText(sdf.format(new Date(current.getDate())));
+        holder.dateText.setText(sdf.format(new Date(current.getTimestamp())));
     }
 
     @Override
