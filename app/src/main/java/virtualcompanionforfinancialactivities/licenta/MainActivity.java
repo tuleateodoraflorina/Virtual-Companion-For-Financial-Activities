@@ -1,21 +1,24 @@
 package virtualcompanionforfinancialactivities.licenta;
 
 import android.os.Bundle;
-import android.view.View;
+import android.widget.ArrayAdapter; // NEW
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Spinner;      // NEW
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager; // Import needed
-import androidx.recyclerview.widget.RecyclerView;       // Import needed
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import virtualcompanionforfinancialactivities.licenta.dao.CategoryDao; // NEW
 import virtualcompanionforfinancialactivities.licenta.dao.PetDao;
 import virtualcompanionforfinancialactivities.licenta.dao.TransactionDao;
 import virtualcompanionforfinancialactivities.licenta.database.AppDatabase;
 
-import java.util.List; // Import needed for the list
+import java.util.ArrayList; // NEW
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -23,13 +26,19 @@ public class MainActivity extends AppCompatActivity {
     private EditText inputAmount, inputDesc;
     private TextView textTotal;
     private ImageView imagePet;
-    private RecyclerView recyclerView; // <--- You were missing this
+    private RecyclerView recyclerView;
+    private Spinner spinnerCategory; // <--- NEW: The Dropdown
 
     // --- Logic Variables ---
     private TransactionDao transactionDao;
     private PetDao petDao;
+    private CategoryDao categoryDao; // <--- NEW: To talk to Category table
+
     private Pet currentPet;
-    private TransactionAdapter adapter; // <--- You were missing this
+    private TransactionAdapter adapter;
+
+    // We need this list to match the dropdown selection to the real Category ID
+    private List<Category> categoryList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,8 +51,9 @@ public class MainActivity extends AppCompatActivity {
         Button btnSave = findViewById(R.id.btn_save);
         textTotal = findViewById(R.id.text_total);
         imagePet = findViewById(R.id.image_pet);
+        spinnerCategory = findViewById(R.id.spinner_category); // <--- NEW
 
-        // 1.5 Initialize RecyclerView (The List)
+        // 1.5 Initialize RecyclerView
         recyclerView = findViewById(R.id.recycler_view_history);
         adapter = new TransactionAdapter();
         recyclerView.setAdapter(adapter);
@@ -53,27 +63,43 @@ public class MainActivity extends AppCompatActivity {
         AppDatabase db = AppDatabase.getDatabase(this);
         transactionDao = db.transactionDao();
         petDao = db.petDao();
+        categoryDao = db.categoryDao(); // <--- NEW
 
-        // 3. Initialize Pet
+        // 3. Setup Logic
         initializePet();
+        loadCategories(); // <--- NEW: Fill the dropdown!
 
-        // 4. Update displays
         updateUI();
-        loadTransactionList(); // Load the list when app starts
+        loadTransactionList();
 
         // 5. Button Logic
         btnSave.setOnClickListener(v -> saveTransaction());
     }
 
+    // --- NEW METHOD: Loads categories from DB into Spinner ---
+    private void loadCategories() {
+        // 1. Get raw list from DB
+        categoryList = categoryDao.getAllCategories();
+
+        // 2. We only want the NAMES to show in the dropdown (Strings)
+        List<String> names = new ArrayList<>();
+        for (Category c : categoryList) {
+            names.add(c.getName());
+        }
+
+        // 3. Create the adapter (bridge between list and spinner)
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, names);
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+        // 4. Set it
+        spinnerCategory.setAdapter(spinnerAdapter);
+    }
+
     private void initializePet() {
         currentPet = petDao.getActivePet();
-
         if (currentPet == null) {
-            Pet newPet = new Pet(
-                    "Bobi",
-                    1, 0, 100.0f, 100.0f,
-                    System.currentTimeMillis(), null
-            );
+            Pet newPet = new Pet("Bobi", 1, 0, 100.0f, 100.0f, System.currentTimeMillis(), null);
             petDao.insert(newPet);
             currentPet = newPet;
         }
@@ -87,8 +113,17 @@ public class MainActivity extends AppCompatActivity {
 
         double amount = Double.parseDouble(amountText);
 
-        // 1. Save Transaction to DB
-        Transaction t = new Transaction(amount, "EXPENSE", System.currentTimeMillis(), 1, description);
+        // --- NEW LOGIC: Get Selected Category ---
+        int selectedPosition = spinnerCategory.getSelectedItemPosition();
+
+        // Safety check: if list is empty (shouldn't happen), use default 1
+        long selectedCategoryId = 1;
+        if (selectedPosition >= 0 && selectedPosition < categoryList.size()) {
+            selectedCategoryId = categoryList.get(selectedPosition).getId();
+        }
+
+        // 1. Save Transaction with REAL Category ID
+        Transaction t = new Transaction(amount, "EXPENSE", System.currentTimeMillis(), selectedCategoryId, description);
         transactionDao.insert(t);
 
         // 2. Update Pet Happiness
@@ -101,19 +136,16 @@ public class MainActivity extends AppCompatActivity {
             petDao.update(currentPet);
         }
 
-        // 3. Clear Inputs and Refresh UI
+        // 3. Clear & Refresh
         inputAmount.setText("");
         inputDesc.setText("");
 
-        updateUI();              // Update the total and pet image
-        loadTransactionList();   // <--- IMPORTANT: Refresh the list to show new item!
+        updateUI();
+        loadTransactionList();
 
         Toast.makeText(this, "Expense Saved!", Toast.LENGTH_SHORT).show();
     }
 
-    // --- Helper Methods ---
-
-    // This method must be OUTSIDE saveTransaction
     private void loadTransactionList() {
         List<Transaction> list = transactionDao.getAllTransactions();
         adapter.setTransactions(list);

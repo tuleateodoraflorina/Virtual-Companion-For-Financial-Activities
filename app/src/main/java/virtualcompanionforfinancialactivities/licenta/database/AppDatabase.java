@@ -33,8 +33,9 @@ public abstract class AppDatabase extends RoomDatabase {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, "finance_pet_database")
-                            .allowMainThreadQueries() // Still keeping this for simple testing
-                            .addCallback(roomCallback) // <--- Hooking up the magic method
+                            .allowMainThreadQueries()
+                            .fallbackToDestructiveMigration() // <--- ADD THIS LINE
+                            .addCallback(roomCallback)
                             .build();
                 }
             }
