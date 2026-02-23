@@ -28,7 +28,6 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    // --- UI Variables ---
     private EditText inputAmount, inputDesc;
     private TextView textTotal;
     private ImageView imagePet;
@@ -37,7 +36,6 @@ public class MainActivity extends AppCompatActivity {
     private Spinner spinnerInputCurrency;
     private Spinner spinnerDisplayCurrency;
 
-    // --- Logic Variables ---
     private TransactionDao transactionDao;
     private PetDao petDao;
     private CategoryDao categoryDao;
@@ -52,13 +50,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // --- CHECK NOTIFICATION PERMISSION ---
         if (!isNotificationServiceEnabled()) {
             Toast.makeText(this, "Please enable Notification Access for auto-tracking", Toast.LENGTH_LONG).show();
             startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
         }
 
-        // 1. Initialize Views
+        //initialize biews
         inputAmount = findViewById(R.id.input_amount);
         inputDesc = findViewById(R.id.input_desc);
         Button btnSave = findViewById(R.id.btn_save);
@@ -68,28 +65,28 @@ public class MainActivity extends AppCompatActivity {
         spinnerInputCurrency = findViewById(R.id.spinner_input_currency);
         spinnerDisplayCurrency = findViewById(R.id.spinner_display_currency);
 
-        // 1.5 Initialize RecyclerView
+        //initialize RecyclerView
         recyclerView = findViewById(R.id.recycler_view_history);
         adapter = new TransactionAdapter();
         recyclerView.setAdapter(adapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // 2. Initialize Database
+        //database initialize
         AppDatabase db = AppDatabase.getDatabase(this);
         transactionDao = db.transactionDao();
         petDao = db.petDao();
         categoryDao = db.categoryDao();
 
-        // 3. Setup Logic & Spinners
+        //setup logic and spinners
         initializePet();
         loadCategories();
         setupCurrencySpinners();
 
-        // 4. Load Data
+        //load data
         updateUI();
         loadTransactionList();
 
-        // 5. Button Logic
+        //button logic
         btnSave.setOnClickListener(v -> saveTransaction());
     }
 
@@ -126,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
         spinnerInputCurrency.setAdapter(currencyAdapter);
         spinnerDisplayCurrency.setAdapter(currencyAdapter);
 
-        // Add a listener to recalculate total instantly when display currency is changed
+        //add a listener to recalculate total instantly when display currency is changed
         spinnerDisplayCurrency.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -155,22 +152,22 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // 1. Get the numbers and strings
+        // get the numbers and strings
         double amount = Double.parseDouble(amountText);
         String selectedCurrency = spinnerInputCurrency.getSelectedItem().toString();
 
-        // 2. Get Selected Category ID
+        // get Selected category id
         int selectedPosition = spinnerCategory.getSelectedItemPosition();
         long selectedCategoryId = 1; // Default fallback
         if (selectedPosition >= 0 && selectedPosition < categoryList.size()) {
             selectedCategoryId = categoryList.get(selectedPosition).getId();
         }
 
-        // 3. Save to Database (Correct constructor with Currency)
+        // save to db
         Transaction t = new Transaction(amount, selectedCurrency, "EXPENSE", System.currentTimeMillis(), selectedCategoryId, description);
         transactionDao.insert(t);
 
-        // 4. Update Pet Happiness
+        //update pet
         if (currentPet != null) {
             float newHappiness = currentPet.getHappinessScore() - 5.0f;
             if (newHappiness < 0) newHappiness = 0;
@@ -180,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
             petDao.update(currentPet);
         }
 
-        // 5. Clear Inputs & Refresh UI
+        //refresh ui
         inputAmount.setText("");
         inputDesc.setText("");
 
@@ -218,19 +215,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // --- Exchange Rate Helper ---
+    // exchange rate
     private double convertCurrency(double amount, String fromCurrency, String toCurrency) {
         if (fromCurrency.equals(toCurrency)) return amount;
 
-        // Step 1: Convert everything to a base currency (RON)
         double amountInRon = amount;
-        if (fromCurrency.equals("EUR")) amountInRon = amount * 4.97;
-        if (fromCurrency.equals("USD")) amountInRon = amount * 4.60;
+        if (fromCurrency.equals("EUR")) amountInRon = amount * 5.10; // 1 EUR = 5.10 RON
+        if (fromCurrency.equals("USD")) amountInRon = amount * 4.33; // 1 USD = 4.33 RON
 
-        // Step 2: Convert from base (RON) to target currency
         if (toCurrency.equals("RON")) return amountInRon;
-        if (toCurrency.equals("EUR")) return amountInRon / 4.97;
-        if (toCurrency.equals("USD")) return amountInRon / 4.60;
+        if (toCurrency.equals("EUR")) return amountInRon / 5.10;
+        if (toCurrency.equals("USD")) return amountInRon / 4.33; // handles 1 EUR = ~1.18 USD
 
         return amount; // Fallback
     }

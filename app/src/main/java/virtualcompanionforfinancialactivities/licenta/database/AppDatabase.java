@@ -18,12 +18,12 @@ import virtualcompanionforfinancialactivities.licenta.dao.CategoryDao;
 import virtualcompanionforfinancialactivities.licenta.dao.PetDao;
 import virtualcompanionforfinancialactivities.licenta.dao.TransactionDao;
 
-@Database(entities = {Transaction.class, Pet.class, Category.class, Shop.class, Inventory.class}, version = 1)
+@Database(entities = {Transaction.class, Pet.class, Category.class, Shop.class, Inventory.class}, version = 2)
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract TransactionDao transactionDao();
     public abstract PetDao petDao();
-    public abstract CategoryDao categoryDao(); // <--- Added this!
+    public abstract CategoryDao categoryDao();
 
     private static volatile AppDatabase INSTANCE;
 
@@ -34,7 +34,7 @@ public abstract class AppDatabase extends RoomDatabase {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     AppDatabase.class, "finance_pet_database")
                             .allowMainThreadQueries()
-                            .fallbackToDestructiveMigration() // <--- ADD THIS LINE
+                            .fallbackToDestructiveMigration()
                             .addCallback(roomCallback)
                             .build();
                 }
@@ -43,7 +43,6 @@ public abstract class AppDatabase extends RoomDatabase {
         return INSTANCE;
     }
 
-    // --- The Magic Method ---
     private static RoomDatabase.Callback roomCallback = new RoomDatabase.Callback() {
         @Override
         public void onCreate(@NonNull SupportSQLiteDatabase db) {
@@ -52,8 +51,6 @@ public abstract class AppDatabase extends RoomDatabase {
             Executors.newSingleThreadExecutor().execute(() -> {
                 CategoryDao dao = INSTANCE.categoryDao();
 
-                // Create default categories
-                // (name, iconName, budget, color)
                 Category c1 = new Category("Food", "ic_food", 500.0, "#FF5733");
                 Category c2 = new Category("Transport", "ic_bus", 100.0, "#33C1FF");
                 Category c3 = new Category("Entertainment", "ic_movie", 200.0, "#A033FF");

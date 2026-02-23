@@ -21,7 +21,6 @@ public class BankNotificationListener extends NotificationListenerService {
     @Override
     public void onCreate() {
         super.onCreate();
-        // Connect to the database when the service starts
         AppDatabase db = AppDatabase.getDatabase(getApplicationContext());
         transactionDao = db.transactionDao();
         petDao = db.petDao();
@@ -29,7 +28,6 @@ public class BankNotificationListener extends NotificationListenerService {
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
-        // 1. Get the notification details
         String packageName = sbn.getPackageName();
         Notification notification = sbn.getNotification();
 
@@ -38,34 +36,33 @@ public class BankNotificationListener extends NotificationListenerService {
 
         Log.d("BankListener", "Notification from: " + packageName + " | Text: " + text);
 
-        // 2. Filter apps (Optional: Only listen to specific banking apps or SMS)
-        // For testing, let's just listen to messages or dummy notifications
-        // if (!packageName.contains("bank") && !packageName.contains("sms")) return;
-
-        // 3. Extract Money Amount using Regex
-        // (?i) makes it case-insensitive (matches LEI, lei, Lei)
-        // It looks for currency BEFORE the number (e.g., $15.50, €20)
-        // OR currency AFTER the number (e.g., 45.50 RON, 120 lei, 50 EUR)
+        // extract using regex
         String regex = "(?i)(?:ron|lei|eur|euro|€|\\$|usd)\\s*(\\d+([.,]\\d{1,2})?)|(\\d+([.,]\\d{1,2})?)\\s*(?:ron|lei|eur|euro|€|\\$|usd)";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(text);
 
         if (matcher.find()) {
-            // If the currency was BEFORE the number, it's saved in Group 1.
-            // If the currency was AFTER the number, it's saved in Group 3.
             String amountStr = matcher.group(1) != null ? matcher.group(1) : matcher.group(3);
-
-            // European banks often use commas for decimals (e.g., 50,50 RON).
-            // Java needs dots (50.50) to do math, so we replace it here.
             amountStr = amountStr.replace(",", ".");
 
             try {
                 double amount = Double.parseDouble(amountStr);
 
-                // 4. Save to Database on a background thread
+                //detect currency
+                String lowerText = text.toLowerCase();
+                String detectedCurrency = "RON"; // Default to RON
+                if (lowerText.contains("eur") || lowerText.contains("euro") || lowerText.contains("€")) {
+                    detectedCurrency = "EUR";
+                } else if (lowerText.contains("usd") || lowerText.contains("$")) {
+                    detectedCurrency = "USD";
+                }
+
+                final String finalCurrency = detectedCurrency;
+
+                // save to db
                 Executors.newSingleThreadExecutor().execute(() -> {
-                    // ... (Keep your existing database saving code here) ...
-                    Transaction t = new Transaction(amount, "EXPENSE", System.currentTimeMillis(), 1, "Auto: " + title);
+
+                    Transaction t = new Transaction(amount, finalCurrency, "EXPENSE", System.currentTimeMillis(), 1, "Auto: " + title);
                     transactionDao.insert(t);
 
                     Pet currentPet = petDao.getActivePet();
@@ -76,18 +73,16 @@ public class BankNotificationListener extends NotificationListenerService {
                         petDao.update(currentPet);
                     }
 
-                    Log.d("BankListener", "Successfully logged auto-expense: " + amount);
+                    Log.d("BankListener", "Successfully logged auto-expense: " + amount + " " + finalCurrency);
                 });
 
             } catch (NumberFormatException e) {
                 e.printStackTrace();
             }
         }
-
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
-        // Not needed for now
     }
 }
